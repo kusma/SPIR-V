@@ -1,4 +1,11 @@
 #include <stdint.h>
+#include <stdlib.h>
+
+struct sv_instr {
+	uint16_t word_count;
+	uint16_t opcode;
+	uint32_t *operands;
+};
 
 struct sv_module {
 	uint32_t magic;
@@ -6,6 +13,9 @@ struct sv_module {
 	uint32_t generator;
 	uint32_t bound;
 	uint32_t reserved;
+
+	struct sv_instr *instrs;
+	int num_instrs;
 };
 
 #define SV_MAGIC 0x07230203
@@ -276,10 +286,6 @@ enum sv_opcode {
 	OpBuildNDRange = 262
 };
 
-struct sv_instr {
-	uint16_t word_count;
-	uint16_t opcode;
-};
 
 int sv_read_instr(struct sv_instr *dst, uint32_t **words, int *num_words)
 {
@@ -299,14 +305,12 @@ int sv_read_instr(struct sv_instr *dst, uint32_t **words, int *num_words)
 	if (dst->word_count > *num_words)
 		return -1; /* not enough data */
 
-	/* read */
+	dst->operands = *words;
 
 	*words += dst->word_count;
 	*num_words -= dst->word_count;
 	return 0;
 }
-
-#include <stdio.h>
 
 int sv_read(struct sv_module *dst, uint32_t *words, int num_words)
 {
@@ -327,12 +331,18 @@ int sv_read(struct sv_module *dst, uint32_t *words, int num_words)
 
 	num_words -= 5;
 
+	dst->instrs = NULL;
+	dst->num_instrs = 0;
 	while (num_words > 0) {
 		struct sv_instr instr;
 		if (sv_read_instr(&instr, &words, &num_words) < 0)
 			return -1;
 
-		/* TODO: do something useful */
+		dst->instrs = realloc(dst->instrs, (dst->num_instrs + 1) * sizeof(instr));
+		if (!dst->instrs)
+			return -1;
+
+		dst->instrs[dst->num_instrs++] = instr;
 	}
 
 	return 0;
@@ -340,13 +350,12 @@ int sv_read(struct sv_module *dst, uint32_t *words, int num_words)
 
 #include <stddef.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 int main()
 {
 	struct sv_module mod;
 	uint32_t word, *words = NULL;
-	int num_words = 0;
+	int num_words = 0, i;
 
 	while (fread(&word, 4, 1, stdin) == 1) {
 		words = realloc(words, (num_words + 1) * 4);
@@ -363,6 +372,9 @@ int main()
 		fprintf(stderr, "failed to read SPIR-V module\n");
 		return 1;
 	}
+
+	for (i = 0; i < mod.num_instrs; ++i)
+		printf("opcode: %d\n", mod.instrs[i].opcode);
 
 	return 0;
 }
