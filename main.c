@@ -19,6 +19,7 @@ struct sv_module {
 };
 
 #define SV_MAGIC 0x07230203
+#define SV_MAGIC_REV 0x03022307
 
 enum sv_opcode {
 	OpNop = 0,
@@ -350,6 +351,15 @@ int sv_read(struct sv_module *dst, uint32_t *words, int num_words)
 
 #include <stddef.h>
 #include <stdio.h>
+#ifdef HAVE_BYTESWAP_H
+#include <byteswap.h>
+#else
+static inline uint32_t bswap_32(uint32_t x)
+{
+	return ((x & 0xff000000) >> 24) | ((x & 0x00ff0000) >>  8) |		      \
+	       ((x & 0x0000ff00) <<  8) | ((x & 0x000000ff) << 24);
+}
+#endif
 
 int main()
 {
@@ -365,6 +375,11 @@ int main()
 		}
 		words[num_words++] = word;
 	}
+
+	/* byte-swap input if needed */
+	if (num_words > 0 &&  words[0] == SV_MAGIC_REV)
+		for (i = 0; i < num_words; ++i)
+			words[i] = bswap_32(words[i]);
 
 	printf("words: %d\n", num_words);
 
