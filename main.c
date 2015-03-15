@@ -297,7 +297,7 @@ int sv_read_instr(struct sv_instr *dst, uint32_t **words, int *num_words)
 	dst->opcode = **words & 0xFFFF;
 
 	/*
-         * WordCount=1 needs to be at least 1, to encode the WordCount and
+         * WordCount needs to be at least 1, to encode the WordCount and
 	 * Opcode itself
          */
 	if (dst->word_count < 1)
